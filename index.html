@@ -8,30 +8,24 @@
     <style>
         :root { --bg: #0d1117; --side: #161b22; --border: #30363d; --accent: #58a6ff; --orange: #f9826c; --text: #c9d1d9; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; display: flex; height: 100vh; overflow: hidden; }
-        
         .sidebar { width: 240px; background: var(--side); border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; }
         .profile { background: #21262d; border: 1px solid var(--border); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 20px; }
         .elo-label { font-size: 10px; color: var(--accent); font-weight: bold; text-transform: uppercase; }
         .elo-num { font-size: 34px; font-weight: 800; color: #fff; margin: 5px 0; }
         .rank-tag { font-size: 13px; font-weight: bold; color: var(--orange); }
-
         .btn { background: #238636; color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 10px; transition: 0.2s; }
         .btn:hover { background: #2ea043; }
         .btn-bot { background: transparent; border: 1px solid var(--accent); color: var(--accent); display: none; }
-
         .main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         #game-view { position: relative; border: 4px solid var(--border); border-radius: 20px; background: #000; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
         canvas { display: block; cursor: none; background: radial-gradient(circle, #161b22 0%, #000 100%); }
         .score { font-size: 60px; font-weight: 900; margin-bottom: 10px; letter-spacing: 15px; }
-
         .overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(13,17,23,0.95); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius: 16px; text-align: center; }
         .hidden { display: none !important; }
         #status { font-size: 12px; color: #8b949e; text-align: center; margin-top: 10px; }
-        #elo-change { font-size: 20px; margin: 10px; }
     </style>
 </head>
 <body>
-
     <div class="sidebar">
         <div class="profile">
             <div class="elo-label">РЕЙТИНГ</div>
@@ -42,14 +36,13 @@
         <button id="bot-btn" class="btn btn-bot" onclick="startBotGame()">ИГРАТЬ С БОТОМ</button>
         <div id="status">Нажми поиск, чтобы начать</div>
     </div>
-
     <div class="main">
         <div class="score" id="score">0 : 0</div>
         <div id="game-view">
             <div id="lobby" class="overlay">
                 <h2 id="win-msg" style="font-size: 36px; margin: 0;">ZEWIR HOCKEY</h2>
                 <p style="color: #8b949e;">Первым до 5 голов</p>
-                <div id="elo-change"></div>
+                <div id="elo-change" style="font-weight: bold; margin: 10px; font-size: 20px;"></div>
                 <button id="re-btn" class="btn hidden" onclick="location.reload()" style="width: 160px;">ЗАНОВО</button>
             </div>
             <canvas id="air" width="800" height="500"></canvas>
@@ -75,8 +68,8 @@
     updateRank();
 
     const puck = { x: 400, y: 250, vx: 0, vy: 0, r: 15 };
-    const p1 = { x: 80, y: 250, r: 35, s: 0, lastX: 80, lastY: 250, cvx: 0, cvy: 0 }; 
-    const p2 = { x: 720, y: 250, r: 35, s: 0, lastX: 720, lastY: 250, cvx: 0, cvy: 0, vx: 0, vy: 0 };
+    const p1 = { x: 80, y: 250, r: 35, s: 0, lx: 80, ly: 250, cvx: 0, cvy: 0 }; 
+    const p2 = { x: 720, y: 250, r: 35, s: 0, lx: 720, ly: 250, cvx: 0, cvy: 0 };
 
     function startSearch() {
         document.getElementById('search-btn').innerText = "ПОИСК...";
@@ -105,7 +98,7 @@
                 if(isHost) { p2.x = d.px; p2.y = d.py; p2.cvx = d.vx; p2.cvy = d.vy; } 
                 else { 
                     puck.x = d.bx; puck.y = d.by; p1.x = d.p1x; p1.y = d.p1y; p1.s = d.s1; p2.s = d.s2; 
-                    if(d.end) finishGame(d.win); // Слушаем команду финиша от хоста
+                    if(d.end) finishGame(d.win); // Получаем сигнал финиша
                 }
             });
         }
@@ -114,8 +107,7 @@
 
     function resetPuck() {
         puck.x = 400; puck.y = 250;
-        puck.vx = (Math.random() > 0.5 ? 9 : -9);
-        puck.vy = (Math.random() - 0.5) * 10;
+        puck.vx = (Math.random() > 0.5 ? 9 : -9); puck.vy = (Math.random() - 0.5) * 10;
     }
 
     canvas.addEventListener('mousemove', (e) => {
@@ -128,19 +120,15 @@
     function loop() {
         if(!running) return;
         if(isHost) {
-            p1.cvx = p1.x - p1.lastX; p1.cvy = p1.y - p1.lastY;
-            p1.lastX = p1.x; p1.lastY = p1.y;
+            p1.cvx = p1.x - p1.lx; p1.cvy = p1.y - p1.ly; p1.lx = p1.x; p1.ly = p1.y;
             puck.x += puck.vx; puck.y += puck.vy;
             if(puck.y < 15 || puck.y > 485) puck.vy *= -1;
-
             if(isBotMode) {
                 let tx = (puck.x > 400) ? puck.x + 40 : 730, ty = (puck.x > 350) ? puck.y : 250;
                 tx = Math.max(480, Math.min(750, tx));
                 let dx = tx - p2.x, dy = ty - p2.y, d = Math.sqrt(dx*dx+dy*dy);
-                if(d > 1) { p2.vx = (dx/d)*Math.min(d*0.1, 8); p2.vy = (dy/d)*Math.min(d*0.1, 8); }
-                p2.x += p2.vx; p2.y += p2.vy; p2.cvx = p2.vx; p2.cvy = p2.vy;
+                if(d > 1) { p2.x += (dx/d)*Math.min(d*0.1, 8); p2.y += (dy/d)*Math.min(d*0.1, 8); }
             }
-
             [p1, p2].forEach(p => {
                 let dx = puck.x - p.x, dy = puck.y - p.y, dist = Math.sqrt(dx*dx+dy*dy);
                 if(dist < puck.r + p.r) {
@@ -149,25 +137,22 @@
                     puck.x = p.x + Math.cos(a)*(puck.r+p.r+2);
                 }
             });
-
-            if (Math.sqrt(puck.vx**2 + puck.vy**2) < 7.5) { puck.vx *= 1.02; puck.vy *= 1.02; }
+            if (Math.sqrt(puck.vx**2+puck.vy**2) < 7) { puck.vx *= 1.02; puck.vy *= 1.02; }
             if(puck.x < 0) { p2.s++; resetPuck(); checkWin(); }
             if(puck.x > 800) { p1.s++; resetPuck(); checkWin(); }
             if(!isBotMode && conn) conn.send({ bx: puck.x, by: puck.y, p1x: p1.x, p1y: p1.y, s1: p1.s, s2: p2.s });
         } else if(conn) {
-            p2.cvx = p2.x - p2.lastX; p2.cvy = p2.y - p2.lastY;
-            p2.lastX = p2.x; p2.lastY = p2.y;
-            conn.send({ px: p2.x, py: p2.y, vx: p2.cvx, vy: p2.cvy });
+            let vx = p2.x - p2.lx, vy = p2.y - p2.ly; p2.lx = p2.x; p2.ly = p2.y;
+            conn.send({ px: p2.x, py: p2.y, vx: vx, vy: vy });
         }
         document.getElementById('score').innerText = `${p1.s} : ${p2.s}`;
-        draw();
-        if(running) requestAnimationFrame(loop);
+        draw(); requestAnimationFrame(loop);
     }
 
     function checkWin() {
         if(p1.s >= 5 || p2.s >= 5) {
             let win = p1.s >= 5;
-            if(!isBotMode && conn) conn.send({ end: true, win: !win }); // Шлем сигнал конца второму
+            if(!isBotMode && conn) conn.send({ end: true, win: !win }); // Шлем сигнал конца
             finishGame(win);
         }
     }
@@ -178,13 +163,11 @@
         myElo = Math.max(0, myElo + change);
         localStorage.setItem('zewir_elo', myElo);
         updateRank();
-        
         document.getElementById('lobby').classList.remove('hidden');
         document.getElementById('win-msg').innerText = win ? "ПОБЕДА!" : "ПРОИГРЫШ";
         document.getElementById('elo-change').innerText = win ? `+${change} RP` : `${change} RP`;
         document.getElementById('elo-change').style.color = win ? "#238636" : "#f9826c";
         document.getElementById('re-btn').classList.remove('hidden');
-        document.getElementById('status').innerText = "Матч завершен";
     }
 
     function draw() {
