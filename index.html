@@ -27,6 +27,7 @@
         .overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(13,17,23,0.95); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius: 16px; text-align: center; }
         .hidden { display: none !important; }
         #status { font-size: 12px; color: #8b949e; text-align: center; margin-top: 10px; }
+        #elo-change { font-size: 20px; margin: 10px; }
     </style>
 </head>
 <body>
@@ -48,7 +49,7 @@
             <div id="lobby" class="overlay">
                 <h2 id="win-msg" style="font-size: 36px; margin: 0;">ZEWIR HOCKEY</h2>
                 <p style="color: #8b949e;">Первым до 5 голов</p>
-                <div id="elo-change" style="font-weight: bold; margin: 10px;"></div>
+                <div id="elo-change"></div>
                 <button id="re-btn" class="btn hidden" onclick="location.reload()" style="width: 160px;">ЗАНОВО</button>
             </div>
             <canvas id="air" width="800" height="500"></canvas>
@@ -57,30 +58,19 @@
 
 <script>
     const canvas = document.getElementById('air'), ctx = canvas.getContext('2d');
-    const ROOM_ID = "zewir-global-lobby-v5"; // Уникальный ID для очереди
+    const ROOM_ID = "zewir-global-lobby-v99"; 
     let peer, conn, isHost = true, running = false, isBotMode = false;
     
-    // Инициализация PeerJS
-    try {
-        peer = new Peer();
-    } catch(e) {
-        alert("Ошибка загрузки сети. Проверь интернет или нажми F5.");
-    }
+    try { peer = new Peer(); } catch(e) { alert("Ошибка сети"); }
 
     let myElo = parseInt(localStorage.getItem('zewir_elo')) || 1000;
-    const ranks = [
-        { name: "DIAMOND", min: 1800, color: "#b9f2ff" },
-        { name: "PLATINUM", min: 1500, color: "#e5e4e2" },
-        { name: "GOLD", min: 1300, color: "#ffd700" },
-        { name: "SILVER", min: 1100, color: "#c0c0c0" },
-        { name: "BRONZE", min: 0, color: "#cd7f32" }
-    ];
+    const ranks = [{n:"DIAMOND",m:1800,c:"#b9f2ff"},{n:"PLATINUM",m:1500,c:"#e5e4e2"},{n:"GOLD",m:1300,c:"#ffd700"},{n:"SILVER",m:1100,c:"#c0c0c0"},{n:"BRONZE",m:0,c:"#cd7f32"}];
 
     function updateRank() {
         document.getElementById('elo-display').innerText = myElo;
-        const rank = ranks.find(r => myElo >= r.min);
-        const tag = document.getElementById('rank-display');
-        tag.innerText = rank.name; tag.style.color = rank.color;
+        const r = ranks.find(x => myElo >= x.m);
+        const t = document.getElementById('rank-display');
+        t.innerText = r.n; t.style.color = r.c;
     }
     updateRank();
 
@@ -90,31 +80,17 @@
 
     function startSearch() {
         document.getElementById('search-btn').innerText = "ПОИСК...";
-        document.getElementById('status').innerText = "Ищем противника...";
-        
         let c = peer.connect(ROOM_ID);
-        let timeout = setTimeout(() => { 
-            c.close(); 
-            becomeHost(); 
-        }, 2000);
-
-        c.on('open', () => { 
-            clearTimeout(timeout); 
-            conn = c; isHost = false; 
-            init(); 
-        });
+        let t = setTimeout(() => { c.close(); becomeHost(); }, 2000);
+        c.on('open', () => { clearTimeout(t); conn = c; isHost = false; init(); });
     }
 
     function becomeHost() {
-        peer.destroy();
-        peer = new Peer(ROOM_ID);
+        peer.destroy(); peer = new Peer(ROOM_ID);
         peer.on('open', () => {
             document.getElementById('status').innerText = "ЖДЕМ ИГРОКА...";
             document.getElementById('bot-btn').style.display = "block";
-            peer.on('connection', (c) => { 
-                conn = c; isHost = true; 
-                init(); 
-            });
+            peer.on('connection', (c) => { conn = c; isHost = true; init(); });
         });
         peer.on('error', (err) => { if(err.type === 'unavailable-id') startSearch(); });
     }
@@ -123,12 +99,14 @@
 
     function init() {
         document.getElementById('lobby').classList.add('hidden');
-        document.getElementById('status').innerText = "ИГРА ИДЕТ";
         running = true; if(isHost) resetPuck();
-        if(!isBotMode && conn) {
+        if(conn) {
             conn.on('data', (d) => {
                 if(isHost) { p2.x = d.px; p2.y = d.py; p2.cvx = d.vx; p2.cvy = d.vy; } 
-                else { puck.x = d.bx; puck.y = d.by; p1.x = d.p1x; p1.y = d.p1y; p1.s = d.s1; p2.s = d.s2; }
+                else { 
+                    puck.x = d.bx; puck.y = d.by; p1.x = d.p1x; p1.y = d.p1y; p1.s = d.s1; p2.s = d.s2; 
+                    if(d.end) finishGame(d.win); // Слушаем команду финиша от хоста
+                }
             });
         }
         loop();
@@ -149,65 +127,64 @@
 
     function loop() {
         if(!running) return;
-
         if(isHost) {
             p1.cvx = p1.x - p1.lastX; p1.cvy = p1.y - p1.lastY;
             p1.lastX = p1.x; p1.lastY = p1.y;
-
             puck.x += puck.vx; puck.y += puck.vy;
             if(puck.y < 15 || puck.y > 485) puck.vy *= -1;
 
             if(isBotMode) {
-                let tx = (puck.x > 400) ? puck.x + 40 : 730;
-                let ty = (puck.x > 350) ? puck.y : 250;
+                let tx = (puck.x > 400) ? puck.x + 40 : 730, ty = (puck.x > 350) ? puck.y : 250;
                 tx = Math.max(480, Math.min(750, tx));
                 let dx = tx - p2.x, dy = ty - p2.y, d = Math.sqrt(dx*dx+dy*dy);
                 if(d > 1) { p2.vx = (dx/d)*Math.min(d*0.1, 8); p2.vy = (dy/d)*Math.min(d*0.1, 8); }
-                p2.x += p2.vx; p2.y += p2.vy;
-                p2.cvx = p2.vx; p2.cvy = p2.vy;
+                p2.x += p2.vx; p2.y += p2.vy; p2.cvx = p2.vx; p2.cvy = p2.vy;
             }
 
             [p1, p2].forEach(p => {
                 let dx = puck.x - p.x, dy = puck.y - p.y, dist = Math.sqrt(dx*dx+dy*dy);
                 if(dist < puck.r + p.r) {
-                    let angle = Math.atan2(dy, dx);
-                    let power = Math.sqrt(p.cvx**2 + p.cvy**2);
-                    let s = Math.max(10, 9 + power * 0.5); 
-                    puck.vx = Math.cos(angle) * Math.min(s, 22);
-                    puck.vy = Math.sin(angle) * Math.min(s, 22);
-                    puck.x = p.x + Math.cos(angle) * (puck.r + p.r + 2);
+                    let a = Math.atan2(dy, dx), s = Math.max(10, 9 + Math.sqrt(p.cvx**2+p.cvy**2)*0.5);
+                    puck.vx = Math.cos(a)*Math.min(s, 22); puck.vy = Math.sin(a)*Math.min(s, 22);
+                    puck.x = p.x + Math.cos(a)*(puck.r+p.r+2);
                 }
             });
 
             if (Math.sqrt(puck.vx**2 + puck.vy**2) < 7.5) { puck.vx *= 1.02; puck.vy *= 1.02; }
-            if(puck.x < 0) { p2.s++; resetPuck(); check(); }
-            if(puck.x > 800) { p1.s++; resetPuck(); check(); }
+            if(puck.x < 0) { p2.s++; resetPuck(); checkWin(); }
+            if(puck.x > 800) { p1.s++; resetPuck(); checkWin(); }
             if(!isBotMode && conn) conn.send({ bx: puck.x, by: puck.y, p1x: p1.x, p1y: p1.y, s1: p1.s, s2: p2.s });
         } else if(conn) {
             p2.cvx = p2.x - p2.lastX; p2.cvy = p2.y - p2.lastY;
             p2.lastX = p2.x; p2.lastY = p2.y;
             conn.send({ px: p2.x, py: p2.y, vx: p2.cvx, vy: p2.cvy });
         }
-        
         document.getElementById('score').innerText = `${p1.s} : ${p2.s}`;
         draw();
-        requestAnimationFrame(loop);
+        if(running) requestAnimationFrame(loop);
     }
 
-    function check() {
+    function checkWin() {
         if(p1.s >= 5 || p2.s >= 5) {
-            running = false;
-            let win = (isHost && p1.s >= 5) || (!isHost && p2.s >= 5);
-            let change = win ? 25 : -15;
-            myElo = Math.max(0, myElo + change);
-            localStorage.setItem('zewir_elo', myElo);
-            updateRank();
-            document.getElementById('lobby').classList.remove('hidden');
-            document.getElementById('win-msg').innerText = win ? "ПОБЕДА!" : "ПРОИГРЫШ";
-            document.getElementById('elo-change').innerText = win ? `+${change} RP` : `${change} RP`;
-            document.getElementById('elo-change').style.color = win ? "#238636" : "#f9826c";
-            document.getElementById('re-btn').classList.remove('hidden');
+            let win = p1.s >= 5;
+            if(!isBotMode && conn) conn.send({ end: true, win: !win }); // Шлем сигнал конца второму
+            finishGame(win);
         }
+    }
+
+    function finishGame(win) {
+        running = false;
+        let change = win ? 25 : -15;
+        myElo = Math.max(0, myElo + change);
+        localStorage.setItem('zewir_elo', myElo);
+        updateRank();
+        
+        document.getElementById('lobby').classList.remove('hidden');
+        document.getElementById('win-msg').innerText = win ? "ПОБЕДА!" : "ПРОИГРЫШ";
+        document.getElementById('elo-change').innerText = win ? `+${change} RP` : `${change} RP`;
+        document.getElementById('elo-change').style.color = win ? "#238636" : "#f9826c";
+        document.getElementById('re-btn').classList.remove('hidden');
+        document.getElementById('status').innerText = "Матч завершен";
     }
 
     function draw() {
