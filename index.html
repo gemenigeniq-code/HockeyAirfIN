@@ -3,184 +3,237 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zewir Hockey Global</title>
+    <title>Zewir Hockey Online + Characters</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --bg: #0d1117; --side: #161b22; --border: #30363d; --accent: #58a6ff; --orange: #f9826c; }
+        :root { --bg: #0d1117; --side: #161b22; --border: #30363d; --accent: #58a6ff; --orange: #f9826c; --text: #c9d1d9; }
         * { box-sizing: border-box; touch-action: none; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; background: var(--bg); color: #c9d1d9; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; display: flex; height: 100vh; overflow: hidden; }
         
-        .sidebar { width: 260px; background: var(--side); border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; z-index: 10; }
-        .btn { background: #238636; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin: 5px 0; }
-        .btn-bot { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+        .sidebar { width: 240px; background: var(--side); border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; overflow-y: auto; }
+        .profile { background: #21262d; border: 1px solid var(--border); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 20px; }
+        .elo-label { font-size: 10px; color: var(--accent); font-weight: bold; text-transform: uppercase; }
+        .elo-num { font-size: 34px; font-weight: 800; color: #fff; margin: 5px 0; }
+        .rank-tag { font-size: 13px; font-weight: bold; color: var(--orange); }
+
+        /* Выбор персонажей */
+        .char-selector { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+        .char-btn { 
+            background: #0d1117; border: 1px solid var(--border); border-radius: 8px; 
+            padding: 8px 0; cursor: pointer; text-align: center; transition: 0.2s;
+        }
+        .char-btn.active { border-color: var(--accent); background: rgba(88, 166, 255, 0.1); transform: scale(1.05); }
+        .char-btn span { font-size: 20px; display: block; }
+
+        .btn { background: #238636; color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 10px; transition: 0.2s; }
+        .btn:hover { background: #2ea043; }
+        .btn-bot { background: transparent; border: 1px solid var(--accent); color: var(--accent); display: none; }
         
         .main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
-        canvas { background: #000; border: 4px solid var(--border); border-radius: 15px; max-width: 95%; height: auto; cursor: none; }
+        #game-view { position: relative; border: 4px solid var(--border); border-radius: 20px; background: #000; box-shadow: 0 0 40px rgba(0,0,0,0.5); width: 95%; max-width: 800px; }
+        canvas { display: block; width: 100%; height: auto; background: radial-gradient(circle, #161b22 0%, #000 100%); border-radius: 16px; }
         
-        .overlay { position: absolute; inset: 0; background: rgba(13,17,23,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
+        .score { font-size: 40px; font-weight: 900; margin-bottom: 10px; letter-spacing: 15px; }
+        .overlay { position: absolute; inset: 0; background: rgba(13,17,23,0.95); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius: 16px; text-align: center; }
         .hidden { display: none !important; }
-        #room-id-display { font-size: 12px; color: var(--accent); margin: 10px; cursor: pointer; }
+        #status { font-size: 12px; color: #8b949e; text-align: center; margin-top: 10px; }
+
+        @media (max-width: 600px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 10px; }
+            .score { font-size: 24px; }
+        }
     </style>
 </head>
 <body>
-
     <div class="sidebar">
-        <h2 style="color:white; font-style:italic">ZEWIR PRO</h2>
-        <div id="elo-box" style="margin: 20px 0; border: 1px solid #333; padding: 10px; border-radius: 8px;">
-            <div style="font-size: 10px;">GLOBAL ELO</div>
-            <div id="elo-num" style="font-size: 24px; font-weight: 900;">1000</div>
+        <div class="profile">
+            <div class="elo-label">РЕЙТИНГ</div>
+            <div class="elo-num" id="elo-display">1000</div>
+            <div class="rank-tag" id="rank-display">BRONZE</div>
         </div>
-        
-        <button class="btn" onclick="startOnline()">ИГРАТЬ ONLINE</button>
-        <button class="btn btn-bot" onclick="startBot()">ТРЕНИРОВКА (БОТ)</button>
-        <div id="status" style="font-size: 11px; margin-top: 10px; color: #8b949e;">Готов к подключению</div>
-        <div id="room-id-display" onclick="copyID()"></div>
+
+        <div style="font-size: 11px; margin-bottom: 10px; color: #8b949e;">ВЫБЕРИ ГЕРОЯ:</div>
+        <div class="char-selector">
+            <div class="char-btn active" onclick="setChar(this, '🐱')"><span>🐱</span></div>
+            <div class="char-btn" onclick="setChar(this, '🎀')"><span>🎀</span></div>
+            <div class="char-btn" onclick="setChar(this, '🍏')"><span>🍏</span></div>
+        </div>
+
+        <button id="search-btn" class="btn" onclick="startSearch()">ONLINE MATCH</button>
+        <button id="bot-btn" class="btn btn-bot" onclick="startBotGame()">ИГРАТЬ С БОТОМ</button>
+        <div id="status">Нажми поиск, чтобы начать</div>
     </div>
 
     <div class="main">
-        <div id="score" style="font-size: 40px; font-weight: 900; margin-bottom: 10px;">0 : 0</div>
-        
-        <div id="lobby" class="overlay">
-            <h1 id="m-title">ZEWIR HOCKEY</h1>
-            <p id="m-desc">Глобальный мультиплеер</p>
-            <button id="re-btn" class="btn hidden" style="width: 150px; margin-top: 20px;" onclick="location.reload()">В МЕНЮ</button>
+        <div class="score" id="score">0 : 0</div>
+        <div id="game-view">
+            <div id="lobby" class="overlay">
+                <h2 id="win-msg" style="font-size: 32px; margin: 0;">ZEWIR HOCKEY</h2>
+                <p style="color: #8b949e;">Первым до 5 голов</p>
+                <div id="elo-change" style="font-weight: bold; margin: 10px; font-size: 20px;"></div>
+                <button id="re-btn" class="btn hidden" onclick="location.reload()" style="width: 160px;">ЗАНОВО</button>
+            </div>
+            <canvas id="air" width="800" height="500"></canvas>
         </div>
-
-        <canvas id="game" width="800" height="500"></canvas>
     </div>
 
 <script>
-    const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
-    let peer, conn, isHost = false, running = false, isBot = false;
-    let myID = "zewir_" + Math.floor(Math.random() * 9999); // Уникальный ID игрока
+    const canvas = document.getElementById('air'), ctx = canvas.getContext('2d');
+    const ROOM_ID = "zewir-global-lobby-v99"; 
+    let peer, conn, isHost = true, running = false, isBotMode = false;
+    let myEmoji = '🐱';
 
-    let elo = parseInt(localStorage.getItem('z_elo')) || 1000;
-    document.getElementById('elo-num').innerText = elo;
+    try { peer = new Peer(); } catch(e) { console.error("Peer Error"); }
+
+    let myElo = parseInt(localStorage.getItem('zewir_elo')) || 1000;
+    const ranks = [{n:"DIAMOND",m:1800,c:"#b9f2ff"},{n:"PLATINUM",m:1500,c:"#e5e4e2"},{n:"GOLD",m:1300,c:"#ffd700"},{n:"SILVER",m:1100,c:"#c0c0c0"},{n:"BRONZE",m:0,c:"#cd7f32"}];
+
+    function updateRank() {
+        document.getElementById('elo-display').innerText = myElo;
+        const r = ranks.find(x => myElo >= x.m);
+        const t = document.getElementById('rank-display');
+        t.innerText = r.n; t.style.color = r.c;
+    }
+    updateRank();
+
+    function setChar(el, emoji) {
+        document.querySelectorAll('.char-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+        myEmoji = emoji;
+    }
 
     const puck = { x: 400, y: 250, vx: 0, vy: 0, r: 15 };
-    const p1 = { x: 100, y: 250, r: 35, s: 0, lx: 100, ly: 250 }; 
-    const p2 = { x: 700, y: 250, r: 35, s: 0, lx: 700, ly: 250 };
+    const p1 = { x: 80, y: 250, r: 35, s: 0, lx: 80, ly: 250, cvx: 0, cvy: 0, emoji: '🐱' }; 
+    const p2 = { x: 720, y: 250, r: 35, s: 0, lx: 720, ly: 250, cvx: 0, cvy: 0, emoji: '🍏' };
 
-    function startOnline() {
-        document.getElementById('status').innerText = "Подключение к сети...";
-        peer = new Peer(myID); // Регистрируем тебя в сети под уникальным ID
-
-        peer.on('open', (id) => {
-            document.getElementById('room-id-display').innerText = "Твой ID: " + id + " (клик - копировать)";
-            // Пробуем найти "Глобальную комнату"
-            let c = peer.connect("zewir_global_room");
-            let t = setTimeout(() => { c.close(); becomeHost(); }, 2000);
-
-            c.on('open', () => {
-                clearTimeout(t); conn = c; isHost = false; 
-                initGame();
-            });
-        });
-
-        peer.on('error', (err) => { if(err.type === 'unavailable-id') becomeHost(); });
+    function startSearch() {
+        document.getElementById('search-btn').innerText = "ПОИСК...";
+        let c = peer.connect(ROOM_ID);
+        let t = setTimeout(() => { c.close(); becomeHost(); }, 2000);
+        c.on('open', () => { clearTimeout(t); conn = c; isHost = false; init(); });
     }
 
     function becomeHost() {
         if(peer && !peer.destroyed) peer.destroy();
-        peer = new Peer("zewir_global_room"); // Становимся главным хостом
+        peer = new Peer(ROOM_ID);
         peer.on('open', () => {
-            document.getElementById('status').innerText = "Ждем противника...";
-            peer.on('connection', (c) => { conn = c; isHost = true; initGame(); });
+            document.getElementById('status').innerText = "ЖДЕМ ИГРОКА...";
+            document.getElementById('bot-btn').style.display = "block";
+            peer.on('connection', (c) => { conn = c; isHost = true; init(); });
         });
+        peer.on('error', (err) => { if(err.type === 'unavailable-id') startSearch(); });
     }
 
-    function startBot() { isBot = true; isHost = true; initGame(); }
+    function startBotGame() { isBotMode = true; isHost = true; init(); }
 
-    function initGame() {
+    function init() {
         document.getElementById('lobby').classList.add('hidden');
-        running = true; if(isHost) resetPuck();
+        running = true; 
+        p1.emoji = isHost ? myEmoji : p1.emoji;
+        p2.emoji = !isHost ? myEmoji : p2.emoji;
+        if(isHost) resetPuck();
         if(conn) {
-            conn.on('data', d => {
-                if(isHost) { p2.x = d.x; p2.y = d.y; }
+            conn.on('data', (d) => {
+                if(isHost) { p2.x = d.px; p2.y = d.py; p2.cvx = d.vx; p2.cvy = d.vy; p2.emoji = d.em; } 
                 else { 
-                    puck.x = d.bx; puck.y = d.by; p1.x = d.p1x; p1.y = d.p1y; 
-                    p1.s = d.s1; p2.s = d.s2;
-                    if(d.win !== undefined) finish(d.win);
+                    puck.x = d.bx; puck.y = d.by; p1.x = d.p1x; p1.y = d.p1y; p1.s = d.s1; p2.s = d.s2; p1.emoji = d.em;
+                    if(d.end) finishGame(d.win);
                 }
             });
         }
         loop();
     }
 
-    function resetPuck() { puck.x = 400; puck.y = 250; puck.vx = isHost?8:-8; puck.vy = (Math.random()-0.5)*10; }
+    function resetPuck() {
+        puck.x = 400; puck.y = 250;
+        puck.vx = (Math.random() > 0.5 ? 9 : -9); puck.vy = (Math.random() - 0.5) * 10;
+    }
 
-    function input(ex, ey) {
+    function handleInput(ex, ey) {
         if(!running) return;
         const r = canvas.getBoundingClientRect();
-        const x = (ex - r.left) * (800 / r.width), y = (ey - r.top) * (500 / r.height);
+        const scX = 800 / r.width;
+        const scY = 500 / r.height;
+        const x = (ex - r.left) * scX, y = (ey - r.top) * scY;
         if(isHost) { p1.x = Math.min(x, 380); p1.y = y; }
         else { p2.x = Math.max(x, 420); p2.y = y; }
     }
 
-    canvas.addEventListener('mousemove', e => input(e.clientX, e.clientY));
-    canvas.addEventListener('touchmove', e => { input(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, {passive:false});
+    canvas.addEventListener('mousemove', (e) => handleInput(e.clientX, e.clientY));
+    canvas.addEventListener('touchmove', (e) => {
+        handleInput(e.touches[0].clientX, e.touches[0].clientY);
+        e.preventDefault();
+    }, { passive: false });
 
     function loop() {
         if(!running) return;
         if(isHost) {
-            let v1x = p1.x - p1.lx, v1y = p1.y - p1.ly; p1.lx = p1.x; p1.ly = p1.y;
-            if(isBot) {
-                // БОТ ИЗ ТВОЕЙ ПРОСЬБЫ (УЛУЧШЕННЫЙ)
-                let targetY = (puck.x > 400) ? puck.y : 250;
-                let targetX = (puck.x > 500) ? puck.x + 20 : 720;
-                p2.y += (targetY - p2.y) * 0.15;
-                p2.x += (targetX - p2.x) * 0.15;
-                p2.x = Math.max(450, Math.min(760, p2.x));
-            }
-            let v2x = p2.x - p2.lx, v2y = p2.y - p2.ly; p2.lx = p2.x; p2.ly = p2.y;
-
+            p1.cvx = p1.x - p1.lx; p1.cvy = p1.y - p1.ly; p1.lx = p1.x; p1.ly = p1.y;
             puck.x += puck.vx; puck.y += puck.vy;
-            if(puck.y < 15 || puck.y > 485) { puck.vy *= -1; puck.y = (puck.y < 15)?15:485; }
+            if(puck.y < 15 || puck.y > 485) puck.vy *= -1;
+            
+            if(isBotMode) {
+                let tx = (puck.x > 400) ? puck.x + 30 : 730;
+                let ty = (puck.x > 350) ? puck.y : 250;
+                tx = Math.max(450, Math.min(750, tx));
+                let dx = tx - p2.x, dy = ty - p2.y, d = Math.sqrt(dx*dx+dy*dy);
+                if(d > 1) { p2.x += (dx/d)*Math.min(d*0.1, 7); p2.y += (dy/d)*Math.min(d*0.1, 7); }
+            }
 
             [p1, p2].forEach(p => {
                 let dx = puck.x - p.x, dy = puck.y - p.y, dist = Math.sqrt(dx*dx+dy*dy);
                 if(dist < puck.r + p.r) {
-                    let a = Math.atan2(dy, dx);
-                    puck.vx = Math.cos(a) * 15; puck.vy = Math.sin(a) * 15;
-                    puck.x = p.x + Math.cos(a) * (puck.r + p.r + 2);
+                    let a = Math.atan2(dy, dx), s = Math.max(10, 9 + Math.sqrt(p.cvx**2+p.cvy**2)*0.5);
+                    puck.vx = Math.cos(a)*Math.min(s, 22); puck.vy = Math.sin(a)*Math.min(s, 22);
+                    puck.x = p.x + Math.cos(a)*(puck.r+p.r+2);
                 }
             });
-
+            if (Math.sqrt(puck.vx**2+puck.vy**2) < 7) { puck.vx *= 1.01; puck.vy *= 1.01; }
             if(puck.x < 0) { p2.s++; resetPuck(); checkWin(); }
             if(puck.x > 800) { p1.s++; resetPuck(); checkWin(); }
-            if(conn) conn.send({ bx: puck.x, by: puck.y, p1x: p1.x, p1y: p1.y, s1: p1.s, s2: p2.s });
+            if(!isBotMode && conn) conn.send({ bx: puck.x, by: puck.y, p1x: p1.x, p1y: p1.y, s1: p1.s, s2: p2.s, em: p1.emoji });
         } else if(conn) {
-            conn.send({ x: p2.x, y: p2.y });
+            let vx = p2.x - p2.lx, vy = p2.y - p2.ly; p2.lx = p2.x; p2.ly = p2.y;
+            conn.send({ px: p2.x, py: p2.y, vx: vx, vy: vy, em: myEmoji });
         }
-        document.getElementById('score').innerText = p1.s + " : " + p2.s;
+        document.getElementById('score').innerText = `${p1.s} : ${p2.s}`;
         draw(); requestAnimationFrame(loop);
     }
 
     function checkWin() {
         if(p1.s >= 5 || p2.s >= 5) {
             let win = p1.s >= 5;
-            if(conn) conn.send({ win: !win });
-            finish(win);
+            if(!isBotMode && conn) conn.send({ end: true, win: !win });
+            finishGame(win);
         }
     }
 
-    function finish(win) {
+    function finishGame(win) {
         running = false;
-        elo += win ? 25 : -15; localStorage.setItem('z_elo', elo);
+        let change = win ? 25 : -15;
+        myElo = Math.max(0, myElo + change);
+        localStorage.setItem('zewir_elo', myElo);
+        updateRank();
         document.getElementById('lobby').classList.remove('hidden');
-        document.getElementById('m-title').innerText = win ? "ПОБЕДА!" : "ПРОИГРЫШ";
+        document.getElementById('win-msg').innerText = win ? "ПОБЕДА!" : "ПРОИГРЫШ";
+        document.getElementById('elo-change').innerText = win ? `+${change} RP` : `${change} RP`;
+        document.getElementById('elo-change').style.color = win ? "#238636" : "#f9826c";
         document.getElementById('re-btn').classList.remove('hidden');
     }
 
     function draw() {
         ctx.clearRect(0,0,800,500);
-        ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.strokeRect(400, 0, 1, 500);
+        ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.strokeRect(400,0,1,500);
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(puck.x, puck.y, puck.r, 0, 7); ctx.fill();
-        ctx.fillStyle = "#f9826c"; ctx.beginPath(); ctx.arc(p1.x, p1.y, p1.r, 0, 7); ctx.fill();
-        ctx.fillStyle = "#58a6ff"; ctx.beginPath(); ctx.arc(p2.x, p2.y, p2.r, 0, 7); ctx.fill();
+        
+        // Рисуем игроков с эмодзи
+        [[p1, "#f9826c"], [p2, "#58a6ff"]].forEach(([p, color]) => {
+            ctx.fillStyle = color; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+            ctx.fillStyle = "#fff"; ctx.font = "30px Arial"; ctx.textAlign = "center";
+            ctx.fillText(p.emoji, p.x, p.y + 11);
+        });
     }
-
-    function copyID() { navigator.clipboard.writeText(myID); alert("ID скопирован!"); }
 </script>
 </body>
 </html>
