@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zewir Hockey Online Random</title>
+    <title>Zewir Hockey Online FIXED</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #0d1117; --side: #161b22; --border: #30363d; --accent: #58a6ff; --orange: #f9826c; --text: #c9d1d9; }
@@ -73,7 +73,7 @@
 <script>
     const canvas = document.getElementById('air'), ctx = canvas.getContext('2d');
     const aCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const MATCH_ID = "zewir-random-lobby-2026"; // Общий ID для всех
+    const MATCH_ID = "zewir-hockey-global-2026"; 
 
     let peer, conn, isHost = true, running = false, isBot = false;
     let myEmoji = '🐱', myNick = localStorage.getItem('zewir_nick') || "Игрок", botDiff = 0.05;
@@ -92,6 +92,14 @@
     const p1 = { x: 80, y: 250, r: 35, s: 0, lx: 80, ly: 250, cvx: 0, cvy: 0, em: '🐱', n: '' }; 
     const p2 = { x: 720, y: 250, r: 35, s: 0, lx: 720, ly: 250, cvx: 0, cvy: 0, em: '🍏', n: '' };
 
+    function updateUI() {
+        document.getElementById('elo-display').innerText = myElo;
+        const r = myElo > 1500 ? ["GOLD", "#ffd700"] : myElo > 1200 ? ["SILVER", "#c0c0c0"] : ["BRONZE", "#cd7f32"];
+        document.getElementById('rank-display').innerText = r[0];
+        document.getElementById('rank-display').style.color = r[1];
+    }
+    updateUI();
+
     function startLocalGame() { 
         saveNick(); isBot = true; isHost = true; 
         p1.n = myNick; p1.em = myEmoji; p2.n = "БОТ"; p2.em = "🤖";
@@ -101,43 +109,55 @@
     function startRandomMatch() {
         saveNick();
         document.getElementById('search-btn').innerText = "ПОИСК...";
-        document.getElementById('status').innerText = "Подключаемся к серверу...";
-        
         if(!peer) peer = new Peer();
 
-        peer.on('open', () => {
-            // Пытаемся подключиться к существующему хосту
-            let c = peer.connect(MATCH_ID);
-            let timeout = setTimeout(() => {
-                c.close();
-                becomeHost(); // Если никто не ответил, становимся хостом сами
-            }, 3000);
+        // Сначала пробуем подключиться как клиент
+        let c = peer.connect(MATCH_ID);
+        let timeout = setTimeout(() => {
+            c.close();
+            becomeHost(); 
+        }, 2500);
 
-            c.on('open', () => {
-                clearTimeout(timeout);
-                conn = c; isHost = false; isBot = false;
-                document.getElementById('status').innerText = "Противник найден!";
-                initGame();
-            });
+        c.on('open', () => {
+            clearTimeout(timeout);
+            conn = c; isHost = false; isBot = false;
+            initGame();
+            setupConnection();
         });
-
-        peer.on('error', (err) => becomeHost());
     }
 
     function becomeHost() {
         if(peer) peer.destroy();
         peer = new Peer(MATCH_ID);
         peer.on('open', () => {
-            document.getElementById('status').innerText = "Ждем игрока...";
+            document.getElementById('status').innerText = "Ожидание игрока...";
             peer.on('connection', (c) => {
                 conn = c; isHost = true; isBot = false;
-                document.getElementById('status').innerText = "Игрок подключился!";
                 initGame();
+                setupConnection();
             });
         });
-        peer.on('error', (err) => {
-            document.getElementById('status').innerText = "Ошибка. Попробуй еще раз.";
-            document.getElementById('search-btn').innerText = "ПОИСК ИГРОКА";
+    }
+
+    function setupConnection() {
+        conn.on('data', d => {
+            if(isHost) { p2.x = d.x; p2.y = d.y; p2.n = d.n; p2.em = d.em; }
+            else { 
+                puck.x = d.bx; puck.y = d.by; 
+                p1.x = d.p1x; p1.y = d.p1y; 
+                p1.s = d.s1; p2.s = d.s2; 
+                p1.n = d.n1; p1.em = d.e1; 
+                if(d.end) endGame(d.win); 
+            }
+        });
+        conn.on('close', () => {
+            if(running) {
+                running = false;
+                document.getElementById('lobby').classList.remove('hidden');
+                document.getElementById('win-msg').innerText = "СВЯЗЬ ПОТЕРЯНА";
+                document.getElementById('msg-p').innerText = "Противник покинул игру.";
+                document.getElementById('re-btn').classList.remove('hidden');
+            }
         });
     }
 
@@ -147,12 +167,6 @@
         document.getElementById('lobby').classList.add('hidden');
         running = true;
         if(isHost) { p1.n = myNick; p1.em = myEmoji; resetPuck(); }
-        if(conn) {
-            conn.on('data', d => {
-                if(isHost) { p2.x = d.x; p2.y = d.y; p2.n = d.n; p2.em = d.em; }
-                else { puck.x = d.bx; puck.y = d.by; p1.x = d.p1x; p1.y = d.p1y; p1.s = d.s1; p2.s = d.s2; p1.n = d.n1; p1.em = d.e1; if(d.end) endGame(d.win); }
-            });
-        }
         loop();
     }
 
@@ -196,16 +210,22 @@
         }
         
         document.getElementById('score').innerText = `${p1.s} : ${p2.s}`;
-        document.getElementById('n1').innerText = p1.n || "Игрок 1";
-        document.getElementById('n2').innerText = p2.n || "Игрок 2";
+        document.getElementById('n1').innerText = p1.n || "Ожидание...";
+        document.getElementById('n2').innerText = p2.n || "Ожидание...";
         draw(); requestAnimationFrame(loop);
     }
 
     function endGame(win) {
+        if(!running) return;
         running = false;
         if(conn && isHost) conn.send({ end: true, win: !win });
-        let change = win ? 25 : -15; myElo += change;
+        
+        let change = win ? 25 : -15; 
+        myElo = Math.max(0, myElo + change);
         localStorage.setItem('zewir_elo', myElo);
+        
+        updateUI(); // ОБНОВЛЯЕМ ЭЛО ВИЗУАЛЬНО
+        
         document.getElementById('lobby').classList.remove('hidden');
         document.getElementById('win-msg').innerText = win ? "ПОБЕДА!" : "ПРОИГРЫШ";
         document.getElementById('elo-result').innerText = (win ? "+" : "") + change + " RP";
