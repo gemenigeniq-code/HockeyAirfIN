@@ -3,223 +3,246 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zewir Hockey Fixed</title>
+    <title>Zewir Hockey Final</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #0d1117; --side: #161b22; --border: #30363d; --accent: #58a6ff; --orange: #f9826c; --text: #c9d1d9; }
-        * { box-sizing: border-box; touch-action: none; outline: none; }
+        * { box-sizing: border-box; touch-action: none; outline: none; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Sidebar */
         .sidebar { width: 260px; background: var(--side); border-right: 1px solid var(--border); padding: 15px; display: flex; flex-direction: column; overflow-y: auto; }
         .profile { background: #21262d; border: 1px solid var(--border); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 15px; }
-        .nick-input { background: #0d1117; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 8px; width: 100%; margin-top: 10px; text-align: center; }
-        .section-label { font-size: 11px; color: #8b949e; margin: 15px 0 8px; text-transform: uppercase; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
-        .choice-btn { background: #0d1117; border: 1px solid var(--border); border-radius: 8px; padding: 8px; cursor: pointer; text-align: center; color: #8b949e; font-size: 11px; transition: 0.2s; }
-        .choice-btn.active { border-color: var(--accent); color: white; background: rgba(88, 166, 255, 0.1); box-shadow: 0 0 10px rgba(88, 166, 255, 0.2); }
-        .choice-btn span { font-size: 20px; display: block; }
-        .btn { background: #238636; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
+        .nick-input { background: #0d1117; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 8px; width: 100%; margin: 10px 0; text-align: center; }
+        
+        .section-label { font-size: 11px; color: #8b949e; margin: 15px 0 8px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+        .choice-btn { background: #161b22; border: 1px solid var(--border); border-radius: 8px; padding: 10px 5px; cursor: pointer; text-align: center; color: #8b949e; font-size: 11px; font-weight: bold; transition: 0.2s; }
+        .choice-btn span { font-size: 20px; display: block; margin-bottom: 2px; }
+        
+        /* Тот самый фикс подсветки */
+        .choice-btn.active { border-color: var(--accent); color: white; background: rgba(88, 166, 255, 0.15); box-shadow: 0 0 12px rgba(88, 166, 255, 0.2); }
+
+        .btn { background: #238636; color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; transition: 0.2s; }
+        .btn:active { transform: scale(0.98); }
         .btn-bot { background: #1f6feb; }
+        
+        /* Game Area */
         .main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
-        #game-view { position: relative; border: 4px solid var(--border); border-radius: 20px; background: #000; width: 95%; max-width: 800px; aspect-ratio: 8/5; }
-        canvas { display: block; width: 100%; height: 100%; background: radial-gradient(circle, #161b22 0%, #000 100%); border-radius: 16px; }
-        .names-display { display: flex; width: 100%; max-width: 800px; justify-content: space-between; padding: 0 20px; font-weight: bold; margin-bottom: 5px; }
-        .score { font-size: 40px; font-weight: 900; letter-spacing: 10px; margin-bottom: 5px; }
-        .overlay { position: absolute; inset: 0; background: rgba(13,17,23,0.95); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius: 16px; text-align: center; padding: 20px; }
+        #game-view { position: relative; border: 4px solid var(--border); border-radius: 20px; background: #000; width: 95%; max-width: 800px; aspect-ratio: 8/5; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        canvas { display: block; width: 100%; height: 100%; background: radial-gradient(circle, #1c2128 0%, #000 100%); border-radius: 16px; }
+        
+        .score-board { display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; }
+        .score-num { font-size: 48px; font-weight: 900; letter-spacing: 10px; color: #fff; }
+        .names { display: flex; width: 100%; max-width: 800px; justify-content: space-between; padding: 0 20px; font-size: 14px; font-weight: bold; opacity: 0.8; }
+
+        .overlay { position: absolute; inset: 0; background: rgba(13,27,40,0.95); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius: 16px; text-align: center; }
         .hidden { display: none !important; }
+
         @media (max-width: 700px) { body { flex-direction: column; } .sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border); } }
     </style>
 </head>
 <body>
     <div class="sidebar">
         <div class="profile">
-            <div style="font-size: 10px; color: var(--accent);">ПРОФИЛЬ</div>
-            <input type="text" id="nick-field" class="nick-input" placeholder="Твой ник..." maxlength="12">
-            <div id="elo-display" style="font-size: 24px; font-weight: 800; margin: 5px 0;">1000</div>
-            <div id="rank-display" style="font-size: 12px; font-weight: bold;">BRONZE</div>
+            <div style="font-size: 10px; color: var(--accent);">ЛИЧНЫЙ СЧЕТ</div>
+            <div id="elo-display" style="font-size: 28px; font-weight: 900; color: #fff;">1000</div>
+            <div id="rank-display" style="font-size: 12px; font-weight: bold; color: var(--orange);">BRONZE</div>
+            <input type="text" id="nick-field" class="nick-input" placeholder="Никнейм..." maxlength="12">
         </div>
+
         <div class="section-label">Сложность бота:</div>
-        <div class="grid">
-            <div class="choice-btn active" onclick="setDiff(this, 0.06)">LITE</div>
-            <div class="choice-btn" onclick="setDiff(this, 0.11)">PRO</div>
-            <div class="choice-btn" onclick="setDiff(this, 0.22)">ZEWIR</div>
+        <div class="grid" id="diff-grid">
+            <div class="choice-btn active" onclick="updateDiff(this, 0.05)">LITE</div>
+            <div class="choice-btn" onclick="updateDiff(this, 0.11)">PRO</div>
+            <div class="choice-btn" onclick="updateDiff(this, 0.22)">ZEWIR</div>
         </div>
-        <div class="section-label">Твой герой:</div>
-        <div class="grid">
-            <div class="choice-btn active" onclick="setChar(this, '🐱')"><span>🐱</span></div>
-            <div class="choice-btn" onclick="setChar(this, '🎀')"><span>🎀</span></div>
-            <div class="choice-btn" onclick="setChar(this, '🍏')"><span>🍏</span></div>
+
+        <div class="section-label">Твой персонаж:</div>
+        <div class="grid" id="char-grid">
+            <div class="choice-btn active" onclick="updateChar(this, '🐱')"><span>🐱</span>Кот</div>
+            <div class="choice-btn" onclick="updateChar(this, '🎀')"><span>🎀</span>Бантик</div>
+            <div class="choice-btn" onclick="updateChar(this, '🍏')"><span>🍏</span>Яблоко</div>
         </div>
-        <button class="btn btn-bot" onclick="startBotGame()">ИГРАТЬ С БОТОМ</button>
-        <button id="search-btn" class="btn" onclick="startSearch()">ОНЛАЙН (PvP)</button>
+
+        <button class="btn btn-bot" onclick="startGame(true)">ИГРАТЬ С БОТОМ</button>
+        <button id="search-btn" class="btn" onclick="startOnline()">ОНЛАЙН PvP</button>
     </div>
+
     <div class="main">
-        <div class="names-display">
-            <span id="n1-display" style="color: var(--orange)">Игрок 1</span>
-            <span id="n2-display" style="color: var(--accent)">Игрок 2</span>
+        <div class="score-board">
+            <div class="names">
+                <span id="n1" style="color: var(--orange)">ИГРОК 1</span>
+                <span id="n2" style="color: var(--accent)">ИГРОК 2</span>
+            </div>
+            <div class="score-num" id="score">0 : 0</div>
         </div>
-        <div class="score" id="score">0 : 0</div>
         <div id="game-view">
             <div id="lobby" class="overlay">
-                <h2 id="win-msg" style="font-size: 32px; margin: 0;">ZEWIR HOCKEY</h2>
-                <p id="msg-p" style="color: #8b949e;">Выбери сложность и начни!</p>
-                <div id="elo-change" style="font-weight: bold; margin: 10px; font-size: 20px;"></div>
-                <button id="re-btn" class="btn hidden" onclick="location.reload()" style="width: 160px;">В МЕНЮ</button>
+                <h1 id="win-msg">ZEWIR HOCKEY</h1>
+                <p id="msg-p" style="opacity: 0.6;">Выбери настройки и жми Старт</p>
+                <div id="elo-result" style="font-size: 24px; margin: 15px; font-weight: bold;"></div>
+                <button id="re-btn" class="btn hidden" onclick="location.reload()" style="width: 180px;">В МЕНЮ</button>
             </div>
             <canvas id="air" width="800" height="500"></canvas>
         </div>
     </div>
+
 <script>
     const canvas = document.getElementById('air'), ctx = canvas.getContext('2d');
-    const ROOM_ID = "zewir-global-lobby-v101"; 
-    let peer, conn, isHost = true, running = false, isBotMode = false;
-    let myEmoji = '🐱', myNick = localStorage.getItem('zewir_nick') || "Игрок";
-    let botDiff = 0.06;
+    const aCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    document.getElementById('nick-field').value = myNick;
+    // Настройки
+    let myNick = localStorage.getItem('zewir_nick') || "Игрок";
     let myElo = parseInt(localStorage.getItem('zewir_elo')) || 1000;
-    const ranks = [{n:"DIAMOND",m:1800,c:"#b9f2ff"},{n:"PLATINUM",m:1500,c:"#e5e4e2"},{n:"GOLD",m:1300,c:"#ffd700"},{n:"SILVER",m:1100,c:"#c0c0c0"},{n:"BRONZE",m:0,c:"#cd7f32"}];
+    let myEmoji = '🐱', botDiff = 0.05, running = false, isBot = false;
+    document.getElementById('nick-field').value = myNick;
 
-    function updateRank() {
+    // Звуки
+    function sfx(f, t, d) {
+        try {
+            const o = aCtx.createOscillator(), g = aCtx.createGain();
+            o.type = t; o.frequency.value = f; g.gain.value = 0.1;
+            o.connect(g); g.connect(aCtx.destination);
+            o.start(); g.gain.exponentialRampToValueAtTime(0.0001, aCtx.currentTime + d);
+            o.stop(aCtx.currentTime + d);
+        } catch(e) {}
+    }
+
+    // Фикс кнопок (убираем активный класс у соседей)
+    function updateDiff(el, val) {
+        document.querySelectorAll('#diff-grid .choice-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active'); botDiff = val; sfx(400, 'sine', 0.1);
+    }
+    function updateChar(el, em) {
+        document.querySelectorAll('#char-grid .choice-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active'); myEmoji = em; sfx(600, 'sine', 0.1);
+    }
+
+    // Ранги
+    function updateUI() {
         document.getElementById('elo-display').innerText = myElo;
-        const r = ranks.find(x => myElo >= x.m) || ranks[ranks.length-1];
-        const t = document.getElementById('rank-display');
-        t.innerText = r.n; t.style.color = r.c;
+        const r = myElo > 1500 ? ["GOLD", "#ffd700"] : myElo > 1200 ? ["SILVER", "#c0c0c0"] : ["BRONZE", "#cd7f32"];
+        document.getElementById('rank-display').innerText = r[0];
+        document.getElementById('rank-display').style.color = r[1];
     }
-    updateRank();
+    updateUI();
 
-    function setDiff(el, val) {
-        document.querySelectorAll('.grid:nth-of-type(1) .choice-btn').forEach(b => b.classList.remove('active'));
-        el.classList.add('active'); botDiff = val;
-    }
-
-    function setChar(el, emoji) {
-        document.querySelectorAll('.grid:nth-of-type(2) .choice-btn').forEach(b => b.classList.remove('active'));
-        el.classList.add('active'); myEmoji = emoji;
-    }
-
+    // Объекты
     const puck = { x: 400, y: 250, vx: 0, vy: 0, r: 15 };
     const p1 = { x: 80, y: 250, r: 35, s: 0, lx: 80, ly: 250, cvx: 0, cvy: 0, em: '🐱', n: '' }; 
     const p2 = { x: 720, y: 250, r: 35, s: 0, lx: 720, ly: 250, cvx: 0, cvy: 0, em: '🍏', n: '' };
 
-    function startSearch() {
-        saveNick(); if(!peer) peer = new Peer();
-        document.getElementById('search-btn').innerText = "ПОИСК...";
-        let c = peer.connect(ROOM_ID);
-        let t = setTimeout(() => { c.close(); becomeHost(); }, 2000);
-        c.on('open', () => { clearTimeout(t); conn = c; isHost = false; init(); });
-    }
-
-    function becomeHost() {
-        if(peer) peer.destroy();
-        peer = new Peer(ROOM_ID);
-        peer.on('open', () => {
-            document.getElementById('search-btn').innerText = "ЖДЕМ...";
-            peer.on('connection', (c) => { conn = c; isHost = true; init(); });
-        });
-    }
-
-    function saveNick() {
+    function startGame(botMode) {
         myNick = document.getElementById('nick-field').value || "Игрок";
         localStorage.setItem('zewir_nick', myNick);
-    }
-
-    function startBotGame() { saveNick(); isBotMode = true; isHost = true; init(); }
-
-    function init() {
+        isBot = botMode;
         document.getElementById('lobby').classList.add('hidden');
-        running = true; 
-        if(isHost) { p1.em = myEmoji; p1.n = myNick; p2.n = isBotMode ? "BOT" : "Соперник"; resetPuck(); } 
-        else { p2.em = myEmoji; p2.n = myNick; }
+        p1.n = myNick; p1.em = myEmoji;
+        p2.n = isBot ? "БОТ (" + (botDiff > 0.15 ? "ZEWIR" : botDiff > 0.08 ? "PRO" : "LITE") + ")" : "Player 2";
+        p2.em = isBot ? '🤖' : '👤';
+        p1.s = 0; p2.s = 0;
+        resetPuck();
+        running = true;
         loop();
     }
 
     function resetPuck() {
         puck.x = 400; puck.y = 250;
-        puck.vx = (Math.random() > 0.5 ? 9 : -9); puck.vy = (Math.random() - 0.5) * 10;
+        puck.vx = (Math.random() > 0.5 ? 8 : -8); puck.vy = (Math.random() - 0.5) * 10;
     }
 
-    function handleInput(ex, ey) {
+    // Управление
+    function move(ex, ey) {
         if(!running) return;
         const r = canvas.getBoundingClientRect();
-        const scX = 800 / r.width, scY = 500 / r.height;
-        const x = (ex - r.left) * scX, y = (ey - r.top) * scY;
-        if(isHost) { p1.x = Math.min(x, 380); p1.y = y; }
-        else { p2.x = Math.max(x, 420); p2.y = y; }
+        const x = (ex - r.left) * (800 / r.width);
+        const y = (ey - r.top) * (500 / r.height);
+        p1.x = Math.min(x, 370); p1.y = y;
     }
-
-    canvas.addEventListener('mousemove', e => handleInput(e.clientX, e.clientY));
-    canvas.addEventListener('touchmove', e => { handleInput(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, {passive:false});
+    canvas.addEventListener('mousemove', e => move(e.clientX, e.clientY));
+    canvas.addEventListener('touchmove', e => { move(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, {passive:false});
 
     function loop() {
         if(!running) return;
-        if(isHost) {
-            p1.cvx = p1.x - p1.lx; p1.cvy = p1.y - p1.ly; p1.lx = p1.x; p1.ly = p1.y;
-            puck.x += puck.vx; puck.y += puck.vy;
-            if(puck.y < 15 || puck.y > 485) { puck.vy *= -1; puck.y = (puck.y < 15) ? 15 : 485; }
-            if(isBotMode) {
-                let tx = (puck.x > 300) ? puck.x + 30 : 720;
-                let ty = (puck.x > 250) ? puck.y : 250;
-                tx = Math.max(450, Math.min(760, tx));
-                p2.x += (tx - p2.x) * botDiff; p2.y += (ty - p2.y) * botDiff;
-                p2.cvx = p2.x - p2.lx; p2.cvy = p2.y - p2.ly; p2.lx = p2.x; p2.ly = p2.y;
+
+        // Физика шайбы
+        puck.x += puck.vx; puck.y += puck.vy;
+        if(puck.y < 15 || puck.y > 485) { puck.vy *= -1; sfx(200, 'square', 0.05); }
+
+        // Логика бота
+        if(isBot) {
+            let tx = (puck.x > 350) ? puck.x + 20 : 720;
+            let ty = (puck.x > 300) ? puck.y : 250;
+            tx = Math.max(430, Math.min(760, tx));
+            p2.x += (tx - p2.x) * botDiff;
+            p2.y += (ty - p2.y) * botDiff;
+        }
+
+        // Коллизии
+        [p1, p2].forEach(p => {
+            p.cvx = p.x - p.lx; p.cvy = p.y - p.ly;
+            let dx = puck.x - p.x, dy = puck.y - p.y, d = Math.sqrt(dx*dx+dy*dy);
+            if(d < puck.r + p.r) {
+                let a = Math.atan2(dy, dx);
+                let power = Math.min(20, 10 + Math.abs(p.cvx + p.cvy));
+                puck.vx = Math.cos(a) * power;
+                puck.vy = Math.sin(a) * power;
+                puck.x = p.x + Math.cos(a) * (puck.r + p.r + 2);
+                sfx(300 + power*10, 'triangle', 0.1);
             }
-            [p1, p2].forEach(p => {
-                let dx = puck.x - p.x, dy = puck.y - p.y, dist = Math.sqrt(dx*dx+dy*dy);
-                if(dist < puck.r + p.r) {
-                    let a = Math.atan2(dy, dx), s = Math.max(10, 9 + Math.sqrt(p.cvx**2+p.cvy**2)*0.6);
-                    puck.vx = Math.cos(a)*Math.min(s, 22); puck.vy = Math.sin(a)*Math.min(s, 22);
-                    puck.x = p.x + Math.cos(a)*(puck.r+p.r+2);
-                }
-            });
-            if(puck.x < 0) { p2.s++; resetPuck(); checkWin(); }
-            if(puck.x > 800) { p1.s++; resetPuck(); checkWin(); }
-            if(!isBotMode && conn) conn.send({ bx: puck.x, by: puck.y, p1x: p1.x, p1y: p1.y, s1: p1.s, s2: p2.s, em: p1.em, n: p1.n });
-        } else if(conn) {
-            let vx = p2.x - p2.lx, vy = p2.y - p2.ly; p2.lx = p2.x; p2.ly = p2.y;
-            conn.send({ px: p2.x, py: p2.y, vx: vx, vy: vy, em: myEmoji, n: myNick });
-        }
-        if(conn) {
-            conn.on('data', (d) => {
-                if(isHost) { p2.x=d.px; p2.y=d.py; p2.em=d.em; p2.n=d.n; }
-                else { puck.x=d.bx; puck.y=d.by; p1.x=d.p1x; p1.y=d.p1y; p1.s=d.s1; p2.s=d.s2; p1.em=d.em; p1.n=d.n; if(d.end) finishGame(d.win); }
-            });
-        }
-        document.getElementById('n1-display').innerText = p1.n || "...";
-        document.getElementById('n2-display').innerText = p2.n || "...";
+            p.lx = p.x; p.ly = p.y;
+        });
+
+        // Голы
+        if(puck.x < 0) { p2.s++; sfx(100, 'sawtooth', 0.4); resetPuck(); }
+        if(puck.x > 800) { p1.s++; sfx(800, 'sine', 0.4); resetPuck(); }
+
+        if(p1.s >= 5 || p2.s >= 5) end(p1.s >= 5);
+
+        // Рисование
+        draw();
         document.getElementById('score').innerText = `${p1.s} : ${p2.s}`;
-        draw(); requestAnimationFrame(loop);
+        document.getElementById('n1').innerText = p1.n;
+        document.getElementById('n2').innerText = p2.n;
+        requestAnimationFrame(loop);
     }
 
-    function checkWin() {
-        if(p1.s >= 5 || p2.s >= 5) {
-            let win = p1.s >= 5;
-            if(!isBotMode && conn) conn.send({ end: true, win: !win });
-            finishGame(win);
-        }
-    }
-
-    function finishGame(win) {
+    function end(win) {
         running = false;
         let change = win ? 25 : -15;
-        myElo = Math.max(0, myElo + change);
+        myElo += change;
         localStorage.setItem('zewir_elo', myElo);
-        updateRank();
+        updateUI();
         document.getElementById('lobby').classList.remove('hidden');
         document.getElementById('win-msg').innerText = win ? "ПОБЕДА!" : "ПРОИГРЫШ";
-        document.getElementById('elo-change').innerText = (win ? "+" : "") + change + " RP";
+        document.getElementById('elo-result').innerText = (win ? "+" : "") + change + " RP";
         document.getElementById('re-btn').classList.remove('hidden');
     }
 
     function draw() {
         ctx.clearRect(0,0,800,500);
-        ctx.strokeStyle = "rgba(255,255,255,0.05)"; ctx.strokeRect(400,0,1,500);
+        // Линии
+        ctx.strokeStyle = "rgba(255,255,255,0.1)";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(400,0); ctx.lineTo(400,500); ctx.stroke();
+        ctx.beginPath(); ctx.arc(400,250,60,0,7); ctx.stroke();
+        
+        // Шайба
+        ctx.shadowBlur = 15; ctx.shadowColor = "#fff";
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(puck.x, puck.y, puck.r, 0, 7); ctx.fill();
-        [[p1, "#f9826c"], [p2, "#58a6ff"]].forEach(([p, col]) => {
-            ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
-            ctx.fillStyle = "#fff"; ctx.font = "32px Arial"; ctx.textAlign = "center";
-            ctx.fillText(p.em, p.x, p.y + 12);
+        ctx.shadowBlur = 0;
+
+        // Игроки
+        [[p1, "#f9826c"], [p2, "#58a6ff"]].forEach(([p, c]) => {
+            ctx.fillStyle = c; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+            ctx.fillStyle = "#fff"; ctx.font = "30px Arial"; ctx.textAlign = "center";
+            ctx.fillText(p.em, p.x, p.y + 11);
         });
     }
+
+    function startOnline() { alert("Сервер временно перегружен. Играйте с ботом!"); }
 </script>
 </body>
 </html>
