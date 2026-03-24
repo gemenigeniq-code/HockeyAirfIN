@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zewir Hockey Ultra Online</title>
+    <title>Zewir Hockey Mobile Fixed</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #0d1117; --side: #161b22; --border: #30363d; --accent: #58a6ff; --orange: #f9826c; --text: #c9d1d9; }
-        * { box-sizing: border-box; touch-action: none; outline: none; }
+        * { box-sizing: border-box; touch-action: none; outline: none; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; display: flex; height: 100vh; overflow: hidden; }
-        .sidebar { width: 260px; background: var(--side); border-right: 1px solid var(--border); padding: 15px; display: flex; flex-direction: column; }
+        .sidebar { width: 260px; background: var(--side); border-right: 1px solid var(--border); padding: 15px; display: flex; flex-direction: column; overflow-y: auto; }
         .profile { background: #21262d; border: 1px solid var(--border); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; }
         .nick-input { background: #0d1117; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 8px; width: 100%; margin: 10px 0; text-align: center; }
-        .section-label { font-size: 11px; color: #8b949e; margin: 10px 0 5px; text-transform: uppercase; font-weight: bold; }
         .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
         .choice-btn { background: #161b22; border: 1px solid var(--border); border-radius: 8px; padding: 8px; cursor: pointer; text-align: center; color: #8b949e; font-size: 11px; transition: 0.2s; }
         .choice-btn.active { border-color: var(--accent); color: white; background: rgba(88, 166, 255, 0.1); }
@@ -22,7 +21,7 @@
         .main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
         #game-view { position: relative; border: 4px solid var(--border); border-radius: 20px; background: #000; width: 95%; max-width: 800px; aspect-ratio: 8/5; }
         canvas { display: block; width: 100%; height: 100%; background: radial-gradient(circle, #1c2128 0%, #000 100%); border-radius: 16px; }
-        .score-num { font-size: 48px; font-weight: 900; color: #fff; margin-bottom: 10px; }
+        .score-num { font-size: 48px; font-weight: 900; color: #fff; margin-bottom: 5px; }
         .overlay { position: absolute; inset: 0; background: rgba(13,27,40,0.95); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius: 16px; text-align: center; }
         .hidden { display: none !important; }
         @media (max-width: 700px) { body { flex-direction: column; } .sidebar { width: 100%; height: auto; border-right: none; } }
@@ -32,17 +31,15 @@
     <div class="sidebar">
         <div class="profile">
             <div id="elo-display" style="font-size: 24px; font-weight: 900;">1000</div>
-            <div id="rank-display" style="font-size: 11px; font-weight: bold; color: var(--orange);">BRONZE</div>
+            <div id="rank-display" style="font-size: 11px; font-weight: bold;">BRONZE</div>
             <input type="text" id="nick-field" class="nick-input" placeholder="Ник..." maxlength="12">
         </div>
-        <div class="section-label">Бот:</div>
         <div class="grid" id="diff-grid">
             <div class="choice-btn active" onclick="setD(this, 0.05)">LITE</div>
             <div class="choice-btn" onclick="setD(this, 0.11)">PRO</div>
             <div class="choice-btn" onclick="setD(this, 0.22)">ZEWIR</div>
         </div>
-        <div class="section-label">Герой:</div>
-        <div class="grid" id="char-grid">
+        <div style="margin: 10px 0;" class="grid" id="char-grid">
             <div class="choice-btn active" onclick="setC(this, '🐱')"><span>🐱</span></div>
             <div class="choice-btn" onclick="setC(this, '🎀')"><span>🎀</span></div>
             <div class="choice-btn" onclick="setC(this, '🍏')"><span>🍏</span></div>
@@ -57,7 +54,7 @@
         <div id="game-view">
             <div id="lobby" class="overlay">
                 <h2 id="win-msg">ZEWIR HOCKEY</h2>
-                <p id="msg-p">Найди реального игрока!</p>
+                <p id="msg-p">Управляй пальцем или мышкой!</p>
                 <button id="re-btn" class="btn hidden" onclick="location.reload()" style="width: 150px;">В МЕНЮ</button>
             </div>
             <canvas id="air" width="800" height="500"></canvas>
@@ -66,8 +63,7 @@
 
 <script>
     const canvas = document.getElementById('air'), ctx = canvas.getContext('2d');
-    const aCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const GLOBAL_ROOM = "zewir-v3-match"; // Версия 3 для стабильности
+    const GLOBAL_ROOM = "zewir-global-v5"; // Обновленная версия комнаты
 
     let peer, conn, isHost = true, running = false, isBot = false;
     let myEmoji = '🐱', myNick = localStorage.getItem('z_nick') || "Игрок";
@@ -76,7 +72,6 @@
 
     document.getElementById('nick-field').value = myNick;
     function saveN() { myNick = document.getElementById('nick-field').value || "Игрок"; localStorage.setItem('z_nick', myNick); }
-
     function setD(el, v) { document.querySelectorAll('#diff-grid .choice-btn').forEach(b => b.classList.remove('active')); el.classList.add('active'); botDiff = v; }
     function setC(el, e) { document.querySelectorAll('#char-grid .choice-btn').forEach(b => b.classList.remove('active')); el.classList.add('active'); myEmoji = e; }
 
@@ -89,9 +84,32 @@
     updateUI();
 
     const puck = { x: 400, y: 250, vx: 0, vy: 0, r: 15 };
-    const p1 = { x: 80, y: 250, r: 35, s: 0, lx: 80, ly: 250, em: '🐱', n: '' }; 
-    const p2 = { x: 720, y: 250, r: 35, s: 0, lx: 720, ly: 250, em: '🍏', n: '' };
+    const p1 = { x: 80, y: 250, r: 35, s: 0, em: '🐱', n: '' }; 
+    const p2 = { x: 720, y: 250, r: 35, s: 0, em: '🍏', n: '' };
 
+    // --- УПРАВЛЕНИЕ ДЛЯ ТЕЛЕФОНА И ПК ---
+    function handleMove(clientX, clientY) {
+        if(!running) return;
+        const r = canvas.getBoundingClientRect();
+        const x = (clientX - r.left) * (800 / r.width);
+        const y = (clientY - r.top) * (500 / r.height);
+        
+        if(isHost) {
+            p1.x = Math.max(35, Math.min(x, 370));
+            p1.y = Math.max(35, Math.min(y, 465));
+        } else {
+            p2.x = Math.max(430, Math.min(x, 765));
+            p2.y = Math.max(35, Math.min(y, 465));
+        }
+    }
+
+    canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
+    canvas.addEventListener('touchmove', e => {
+        handleMove(e.touches[0].clientX, e.touches[0].clientY);
+        e.preventDefault(); // Запрещаем прокрутку страницы во время игры
+    }, { passive: false });
+
+    // --- ОНЛАЙН ЛОГИКА ---
     function playBot() { saveN(); isBot = true; isHost = true; p1.n = myNick; p1.em = myEmoji; p2.n = "БОТ"; start(); }
 
     function playOnline() {
@@ -99,18 +117,10 @@
         document.getElementById('status-text').innerText = "Поиск...";
         if(peer) peer.destroy();
         peer = new Peer();
-
-        peer.on('open', (id) => {
-            // Пытаемся зайти в глобальную комнату
+        peer.on('open', () => {
             let c = peer.connect(GLOBAL_ROOM);
             let t = setTimeout(() => { c.close(); startHosting(); }, 3000);
-
-            c.on('open', () => {
-                clearTimeout(t);
-                conn = c; isHost = false; isBot = false;
-                document.getElementById('status-text').innerText = "Подключено!";
-                start();
-            });
+            c.on('open', () => { clearTimeout(t); conn = c; isHost = false; isBot = false; start(); });
         });
     }
 
@@ -119,40 +129,26 @@
         peer = new Peer(GLOBAL_ROOM);
         peer.on('open', () => {
             document.getElementById('status-text').innerText = "Ждем игрока...";
-            peer.on('connection', c => {
-                conn = c; isHost = true; isBot = false;
-                document.getElementById('status-text').innerText = "Игрок зашел!";
-                start();
-            });
-        });
-        peer.on('error', () => {
-            document.getElementById('status-text').innerText = "Ошибка сервера. Еще раз?";
+            peer.on('connection', c => { conn = c; isHost = true; isBot = false; start(); });
         });
     }
 
     function start() {
         document.getElementById('lobby').classList.add('hidden');
+        document.getElementById('status-text').innerText = "В игре!";
         running = true;
         if(isHost) { p1.n = myNick; p1.em = myEmoji; resetP(); }
         if(conn) {
             conn.on('data', d => {
-                if(isHost) { p2.x = d.x; p2.y = d.y; p2.n = d.n; p2.em = d.e; }
+                if(isHost) { p2.x = d.x; p2.y = d.y; p2.n = d.n; p2.e = d.e; }
                 else { puck.x = d.bx; puck.y = d.by; p1.x = d.p1x; p1.y = d.p1y; p1.s = d.s1; p2.s = d.s2; p1.n = d.n1; p1.em = d.e1; if(d.end) finish(d.win); }
             });
-            conn.on('close', () => { location.reload(); });
+            conn.on('close', () => location.reload());
         }
         loop();
     }
 
     function resetP() { puck.x = 400; puck.y = 250; puck.vx = (Math.random() > 0.5 ? 8 : -8); puck.vy = (Math.random()-0.5)*10; }
-
-    canvas.addEventListener('mousemove', e => {
-        if(!running) return;
-        const r = canvas.getBoundingClientRect();
-        const x = (e.clientX - r.left) * (800/r.width), y = (e.clientY - r.top) * (500/r.height);
-        if(isHost) p1.x = Math.min(x, 370); else p2.x = Math.max(x, 430);
-        if(isHost) p1.y = y; else p2.y = y;
-    });
 
     function loop() {
         if(!running) return;
@@ -160,14 +156,15 @@
             puck.x += puck.vx; puck.y += puck.vy;
             if(puck.y < 15 || puck.y > 485) puck.vy *= -1;
             if(isBot) {
-                let tx = puck.x > 350 ? puck.x + 20 : 720;
-                p2.x += (tx - p2.x) * botDiff; p2.y += (puck.y - p2.y) * botDiff;
+                p2.x += (720 - p2.x) * 0.1;
+                p2.y += (puck.y - p2.y) * botDiff;
             }
             [p1, p2].forEach(p => {
                 let dx = puck.x - p.x, dy = puck.y - p.y, d = Math.sqrt(dx*dx+dy*dy);
                 if(d < puck.r + p.r) {
                     let a = Math.atan2(dy, dx);
                     puck.vx = Math.cos(a)*15; puck.vy = Math.sin(a)*15;
+                    puck.x = p.x + Math.cos(a)*(puck.r + p.r + 2);
                 }
             });
             if(puck.x < 0) { p2.s++; resetP(); }
@@ -193,6 +190,8 @@
 
     function draw() {
         ctx.clearRect(0,0,800,500);
+        ctx.strokeStyle = "rgba(255,255,255,0.1)";
+        ctx.strokeRect(0,0,800,500);
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(puck.x, puck.y, puck.r, 0, 7); ctx.fill();
         [[p1, "#f9826c"], [p2, "#58a6ff"]].forEach(([p, c]) => {
             ctx.fillStyle = c; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
